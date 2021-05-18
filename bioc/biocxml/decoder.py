@@ -190,6 +190,15 @@ class BioCXMLDocumentReader:
                     elif elem.tag == 'infon':
                         self.__document.infons[elem.get('key')] = elem.text
                     elif elem.tag == 'document':
+                        # Remove previous element and it's ancestors
+                        # Particularly useful for working with large xml files
+                        # - Based on fast_iter modification of lxml context
+                        # Ref: https://codereview.stackexchange.com/questions/2449/parsing-huge-xml-file-with-lxml-etree-iterparse-in-python
+                        if self.__prev_elem is not None:
+                            self.__prev_elem.clear()
+                            for ancestor in self.__prev_elem.xpath('ancestor-or-self::*'):
+                                while ancestor.getprevious() is not None and ancestor.getparent() is not None:
+                                    del ancestor.getparent()[0]
                         self.__state = 1
                         return
             elif self.__state == 3:
@@ -266,6 +275,10 @@ class BioCXMLDocumentReader:
 
     def __has_next(self):
         try:
+            # Track reference to previous element in xml tree - useful for clearing xml element after processing
+            if self.__elem is not None:
+                self.__prev_elem = self.__elem
+
             self.__event, self.__elem = next(self.__context)
             return True
         except StopIteration:
